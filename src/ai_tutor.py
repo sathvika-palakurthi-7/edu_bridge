@@ -1,7 +1,8 @@
 """
 AI Tutor Engine - Core RAG and Response Generation
 """
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
+from pathlib import Path
 from langchain_ollama import OllamaLLM
 from langchain_core.prompts import PromptTemplate
 from .config import Config
@@ -52,6 +53,38 @@ If answer is not in context, respond ONLY with: "Not Found"
     def load_pdf(self, pdf_path: str) -> bool:
         """Load a PDF for tutoring"""
         return self.pdf_processor.load_pdf(pdf_path)
+    
+    def load_all_pdfs(self) -> Tuple[bool, int]:
+        """
+        Load all PDFs from src/syllabus directory
+        
+        Returns:
+            Tuple of (success: bool, count: int)
+        """
+        # Get the src/syllabus directory relative to this file
+        current_dir = Path(__file__).parent
+        syllabus_dir = current_dir / "syllabus"
+        
+        if not syllabus_dir.exists():
+            print(f"Error: Directory not found: {syllabus_dir}")
+            return False, 0
+        
+        # Find all PDF files in the directory
+        pdf_files = list(syllabus_dir.glob("*.pdf"))
+        
+        if not pdf_files:
+            print(f"Error: No PDF files found in {syllabus_dir}")
+            return False, 0
+        
+        print(f"Found {len(pdf_files)} PDF(s) in syllabus directory")
+        
+        # Load all PDFs
+        success = self.pdf_processor.load_multiple_pdfs(pdf_files)
+        
+        if success:
+            return True, len(pdf_files)
+        else:
+            return False, 0
     
     def answer_question(self, question: str) -> str:
         """

@@ -22,14 +22,15 @@ Type 'help' for available commands
     HELP_TEXT = """
 AVAILABLE COMMANDS:
 -------------------
-load <pdf_path>     Load a PDF document for tutoring
+load                Load all PDFs from src/syllabus directory
+load <pdf_path>     Load a specific PDF document
 status              Show current system status
 help                Show this help message
 exit/quit           Exit the application
 
 ASKING QUESTIONS:
 -----------------
-Simply type your question after loading a PDF.
+Simply type your question after loading PDFs.
 The system will analyze the PDF content and provide answers.
 
 RESPONSE FORMAT:
@@ -88,7 +89,8 @@ If the answer is not found in the PDF, you will see: "Not Found"
         
         elif command == "load":
             if len(parts) < 2:
-                print("Usage: load <pdf_path>")
+                # Load all PDFs from src/syllabus directory
+                self._load_all_pdfs()
             else:
                 # Strip quotes and extra whitespace
                 pdf_path = parts[1].strip().strip('"').strip("'")
@@ -110,6 +112,19 @@ If the answer is not found in the PDF, you will see: "Not Found"
             print("You can now ask questions about this document")
         else:
             print("\n[FAILED] Failed to load PDF")
+    
+    def _load_all_pdfs(self):
+        """Load all PDFs from src/syllabus directory"""
+        print("\nLoading all PDFs from src/syllabus directory...")
+        print("Please wait...")
+        
+        success, count = self.tutor.load_all_pdfs()
+        
+        if success:
+            print(f"\n[SUCCESS] Successfully loaded all {count} PDF(s) from src/syllabus")
+            print("You can now ask questions from these documents")
+        else:
+            print("\n[FAILED] Failed to load PDFs from src/syllabus directory")
     
     def _answer_question(self, question: str):
         """Answer a user question"""

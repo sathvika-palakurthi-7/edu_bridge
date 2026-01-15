@@ -154,6 +154,104 @@ class PDFProcessor:
             print(f"Fatal error loading PDF: {str(e)}")
             return False
     
+    def load_multiple_pdfs(self, pdf_paths: List[Path]) -> bool:
+        """
+        Load multiple PDFs into a single vector store
+        
+        Args:
+            pdf_paths: List of Path objects to PDF files
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            all_documents = []
+            total_pages = 0
+            
+            for pdf_path in pdf_paths:
+                print(f"\n[{pdf_paths.index(pdf_path) + 1}/{len(pdf_paths)}] Processing: {pdf_path.name}")
+                
+                if not pdf_path.exists():
+                    print(f"  Warning: PDF file not found at {pdf_path}")
+                    continue
+                
+                if not pdf_path.suffix.lower() == '.pdf':
+                    print(f"  Warning: File must be a PDF, skipping")
+                    continue
+                
+                documents = []
+                try:
+                    doc = fitz.open(str(pdf_path))
+                    
+                    if doc.is_closed or doc.page_count == 0:
+                        print(f"  Warning: PDF is empty or could not be opened")
+                        continue
+                    
+                    for page_num in range(doc.page_count):
+                        page = doc.load_page(page_num)
+                        
+                        # 1. Try standard text extraction
+                        text = page.get_text("text").strip()
+                        
+                        # 2. Fall back to OCR if no text found and Tesseract is available
+                        if not text and self._tesseract_available:
+                            # Render page to image
+                            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+                            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                            text = pytesseract.image_to_string(img).strip()
+                        
+                        if text:
+                            documents.append(
+                                Document(
+                                    page_content=text,
+                                    metadata={
+                                        "source": pdf_path.name,
+                                        "page": page_num + 1
+                                    }
+                                )
+                            )
+                    doc.close()
+                    
+                    if documents:
+                        all_documents.extend(documents)
+                        total_pages += len(documents)
+                        print(f"  Extracted {len(documents)} pages")
+                    else:
+                        print(f"  Warning: No text content could be extracted")
+                    
+                except Exception as e:
+                    print(f"  Error processing {pdf_path.name}: {str(e)}")
+                    continue
+            
+            if not all_documents:
+                print("\nError: No text content could be extracted from any PDF")
+                return False
+            
+            # Split into chunks
+            print(f"\nCreating knowledge base from {len(pdf_paths)} PDF(s)...")
+            chunks = self.text_splitter.split_documents(all_documents)
+            
+            if not chunks:
+                print("Error: Failed to create text chunks from PDF content")
+                return False
+            
+            # Create vector store with all documents
+            self.vectorstore = Chroma.from_documents(
+                documents=chunks,
+                embedding=self.embeddings,
+                persist_directory=Config.VECTOR_STORE_PATH
+            )
+            
+            self.current_pdf = f"{len(pdf_paths)} PDFs from syllabus"
+            print(f"Total pages processed: {total_pages}")
+            print(f"Total chunks created: {len(chunks)}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"Fatal error loading PDFs: {str(e)}")
+            return False
+    
     def search(self, query: str, k: int = None) -> List[Document]:
         """
         Search vector store for relevant documents
