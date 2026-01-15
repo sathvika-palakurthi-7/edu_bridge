@@ -27,7 +27,7 @@ class Config:
     
     # Response Settings
     MAX_CONTEXT_DOCS = 3
-    TEMPERATURE = 0.1  # Low temperature for factual responses
+    TEMPERATURE = 0.2  # Lower temperature for concise, focused tutoring
     
     @classmethod
     def validate(cls):
